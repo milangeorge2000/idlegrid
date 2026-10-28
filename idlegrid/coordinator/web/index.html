@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IdleGrid</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="auth" class="auth hidden">
+  <div class="auth-card">
+    <div class="brand"><span class="dot"></span>IdleGrid</div>
+    <p class="muted">Run open models on idle Macs and GPUs around the world.</p>
+    <div class="tabs"><button data-mode="login" class="on">Sign in</button><button data-mode="register">Create account</button></div>
+    <form id="auth-form">
+      <label>Email<input name="email" type="email" required autocomplete="username"></label>
+      <label>Password<input name="password" type="password" required minlength="8" autocomplete="current-password"></label>
+      <button class="primary" type="submit" id="auth-submit">Sign in</button>
+      <p class="error" id="auth-error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="shell" class="shell hidden">
+  <nav class="side">
+    <div class="brand"><span class="dot"></span>IdleGrid</div>
+    <a href="#overview">Overview</a>
+    <div class="group">Inference</div>
+    <a href="#playground">Playground</a>
+    <a href="#batch">Batch jobs</a>
+    <a href="#api">API</a>
+    <div class="group">Earn</div>
+    <a href="#machines">My machines</a>
+    <div class="spacer"></div>
+    <div class="who"><span id="who"></span><button class="link" id="logout">Sign out</button></div>
+  </nav>
+  <main id="view"></main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
