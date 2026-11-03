@@ -1,0 +1,20 @@
+[Unit]
+Description=IdleGrid coordinator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=idlegrid
+Group=idlegrid
+WorkingDirectory=/var/lib/idlegrid
+ExecStart=/opt/idlegrid/venv/bin/idlegrid-coordinator --host 127.0.0.1 --port 8000 --db /var/lib/idlegrid/idlegrid.db
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/idlegrid
+
+[Install]
+WantedBy=multi-user.target
