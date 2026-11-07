@@ -32,6 +32,28 @@ buyer ──HTTPS/SSE──▶ coordinator + gateway ◀──outbound WebSocket
   `--hours 23-7`, when the Mac is too hot, and with `--pause-when-active` while you use it.
   Paused work is handed back immediately.
 
+## Share your Mac (one line)
+
+Sign up on the coordinator's website, open **My machines → Add a machine**, and paste
+the command it shows into Terminal on an Apple Silicon Mac:
+
+```bash
+curl -fsSL https://YOUR-COORDINATOR/install.sh | bash -s -- join_XXXX
+```
+
+The installer checks the Mac (Apple Silicon, 8 GB+), installs its own Python, the agent
+and MLX into `~/.idlegrid` (no sudo), registers the Mac, downloads a small starter model
+so it can pass its verification prompts, and runs it as a background service that starts
+at every login. Add `--allow-battery`, `--pause-when-active`, `--hours 23-7`,
+`--models a,b` or `--no-service` after the token to change that.
+
+```bash
+tail -f ~/.idlegrid/node.log                              # watch it work
+idlegrid-node prepare recommended                          # download the biggest model that fits
+launchctl bootout gui/$(id -u)/ai.idlegrid.node            # stop
+rm -rf ~/.idlegrid ~/Library/LaunchAgents/ai.idlegrid.node.plist   # uninstall (after stopping)
+```
+
 ## Run locally
 
 ```bash
