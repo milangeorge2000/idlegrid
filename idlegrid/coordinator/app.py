@@ -8,11 +8,12 @@ import io
 import json
 import logging
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -23,6 +24,9 @@ from .hub import Hub
 
 WEB = Path(__file__).parent / "web"
 MAX_BATCH_ROWS = 10_000
+# Where the installer gets the node agent from.
+NODE_PACKAGE = os.environ.get(
+    "IDLEGRID_PACKAGE", "https://github.com/milangeorge2000/idlegrid/archive/refs/heads/main.tar.gz")
 log = logging.getLogger("idlegrid")
 
 
@@ -323,6 +327,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/")
     def index():
         return FileResponse(WEB / "index.html")
+
+    @app.get("/install.sh")
+    def install_sh(request: Request):
+        """The node installer, with this server's public address filled in."""
+        base = os.environ.get("IDLEGRID_PUBLIC_URL", "").rstrip("/")
+        if not base:
+            proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+            host = request.headers.get("host", "")
+            if proto not in ("http", "https") or not re.fullmatch(r"[A-Za-z0-9.\-:\[\]]{1,255}", host):
+                raise HTTPException(400, "Bad host header.")
+            base = f"{proto}://{host}"
+        text = (WEB / "install.sh").read_text()
+        text = text.replace("__IDLEGRID_SERVER__", base).replace("__IDLEGRID_PACKAGE__", NODE_PACKAGE)
+        return PlainTextResponse(text, media_type="text/x-shellscript")
 
     @app.get("/healthz")
     def healthz():

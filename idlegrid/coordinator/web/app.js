@@ -204,9 +204,18 @@ function machines() {
     <h2>Registered machines</h2><div class="scroll" id="nodes"></div>`);
   $("#add").onclick = async () => {
     const r = await api("/api/nodes/join-token", { method: "POST" });
-    $("#join").innerHTML = `<p>On the machine you want to share, run (token works once, for 24 hours):</p>
-      <pre>idlegrid-node start --server ${esc(location.origin)} --join-token ${esc(r.join_token)}</pre>
-      <p class="muted">The agent checks the hardware, registers, passes a few hidden test prompts, then starts receiving work. It pauses on battery, and with <code>--pause-when-active</code> whenever you use the computer.</p>`;
+    const cmd = `curl -fsSL ${location.origin}/install.sh | bash -s -- ${r.join_token}`;
+    $("#join").innerHTML = `<p>On the Apple Silicon Mac you want to share, open <b>Terminal</b> and paste this (the token works once, for 24 hours):</p>
+      <pre id="cmd">${esc(cmd)}</pre>
+      <div class="actions"><button id="copy">Copy command</button><span class="muted" id="copied"></span></div>
+      <p class="muted">It checks the Mac, installs everything into <code>~/.idlegrid</code> (no admin password), links the Mac to your account,
+      downloads a small starter model, and runs in the background at every login. It pauses on battery; add
+      <code>--allow-battery</code>, <code>--pause-when-active</code> or <code>--hours 23-7</code> after the token to change when it works.</p>
+      <p class="muted">Already installed? <code>idlegrid-node start --server ${esc(location.origin)} --join-token ${esc(r.join_token)}</code></p>`;
+    $("#copy").onclick = async () => {
+      try { await navigator.clipboard.writeText(cmd); $("#copied").textContent = "Copied"; }
+      catch (e) { $("#copied").textContent = "Select the command above and copy it"; }
+    };
   };
   poll(async () => {
     const ns = await api("/api/nodes");
