@@ -215,3 +215,31 @@ def test_auth_required_and_join_token_single_use(tmp_path):
             again = await net.http.post("/api/nodes/register", json={"join_token": jt, **MOCK_HW})
             assert ok.status_code == 200 and again.status_code == 401
     run(main())
+
+
+def test_installer_is_served_with_server_address(tmp_path):
+    async def main():
+        async with Net(tmp_path) as net:
+            r = await net.http.get("/install.sh")
+            assert r.status_code == 200 and r.text.startswith("#!/bin/bash")
+            assert f'SERVER="${{IDLEGRID_SERVER:-{net.base}}}"' in r.text
+            assert "__IDLEGRID_" not in r.text
+            proxied = await net.http.get("/install.sh", headers={"x-forwarded-proto": "https", "host": "grid.example.com"})
+            assert 'IDLEGRID_SERVER:-https://grid.example.com}' in proxied.text
+            evil = await net.http.get("/install.sh", headers={"host": "x$(rm -rf ~)"})
+            assert evil.status_code == 400
+    run(main())
+
+
+def test_idle_nodes_are_not_spammed_with_test_prompts(tmp_path, monkeypatch):
+    monkeypatch.setattr(hubmod, "CANARY_RATE", 1.0)   # the old code sent one every second to idle nodes
+    async def main():
+        async with Net(tmp_path) as net:
+            node = await net.add_node("idle", models=["qwen2.5-7b"], tps=200)
+            await net.wait_active(node)
+            db = net.app.state.db
+            count = lambda: db.one("SELECT COUNT(*) n FROM tasks WHERE kind='canary' AND node_id=?", node)["n"]
+            after_probation = count()
+            await asyncio.sleep(4)
+            assert count() == after_probation, "an idle node should get no test prompts"
+    run(main())
