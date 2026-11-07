@@ -182,14 +182,17 @@ class Hub:
         self._prewarm()
         for conn in list(self.nodes.values()):
             while conn.free_slots > 0 and not conn.paused and conn.info.get("status") != "banned":
-                if conn.info.get("status") == "probation" or random.random() < CANARY_RATE:
-                    if await self._send_canary(conn):
-                        continue
-                    if conn.info.get("status") == "probation":
+                if conn.info.get("status") == "probation":
+                    # New nodes only get test prompts until they have proven themselves.
+                    if not await self._send_canary(conn):
                         break
+                    continue
                 task = self._pick_task(conn)
                 if not task:
-                    break
+                    break  # idle nodes are left alone: no work, no test prompts
+                # Hide a test prompt among real work now and then; the real task stays queued.
+                if random.random() < CANARY_RATE and await self._send_canary(conn):
+                    continue
                 await self._assign(conn, task)
 
     def _pick_task(self, conn: NodeConn) -> dict | None:
@@ -246,14 +249,17 @@ class Hub:
             return False
         model_id = random.choice(runnable)
         code = f"{secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ')}{secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ')}-{random.randint(1000, 9999)}"
-        payload = {"messages": [{"role": "user", "content": f"Repeat exactly this code and nothing else: {code}"}],
-                   "max_tokens": 16, "temperature": 0.0, "expected": code}
+        # Small models sometimes wrap the answer in chatter or code fences, so give them a
+        # clear instruction and enough tokens; the check only needs the code to appear.
+        payload = {"messages": [{"role": "system", "content": "Reply with only the requested text."},
+                                {"role": "user", "content": f"Repeat exactly this code and nothing else: {code}"}],
+                   "max_tokens": 48, "temperature": 0.0, "expected": code}
         tid = new_id("t")
         self.db.insert("tasks", id=tid, kind="canary", model=model_id, payload=payload, status="leased",
                        node_id=conn.id, lease_expires=now() + 60, attempts=1, created_at=now())
         conn.active[tid] = "task"
         await conn.send({"type": "run", "id": tid, "model": model_id, "stream": False,
-                         "messages": payload["messages"], "max_tokens": 16, "temperature": 0.0})
+                         "messages": payload["messages"], "max_tokens": 48, "temperature": 0.0})
         return True
 
     def _canary_result(self, conn: NodeConn, task: dict, output: str | None):
@@ -265,7 +271,7 @@ class Hub:
             status = "active" if info["status"] == "probation" and n_pass >= PROBATION_CANARIES else info["status"]
             self.db.update("nodes", conn.id, reputation=rep, canary_pass=n_pass, status=status)
         else:
-            rep = max(0.0, info["reputation"] - 0.3)
+            rep = max(0.0, info["reputation"] - 0.15)  # a junk node is banned after ~3 straight failures
             status = "banned" if rep < 0.1 else info["status"]
             self.db.update("nodes", conn.id, reputation=rep, canary_fail=info["canary_fail"] + 1, status=status)
         self.db.update("tasks", task["id"], status="done" if passed else "failed",
