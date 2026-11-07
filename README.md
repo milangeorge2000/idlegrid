@@ -3,6 +3,31 @@
 Decentralized LLM inference on idle Apple Silicon Macs (and later NVIDIA GPUs).
 Buyers call an OpenAI-compatible API or submit batch jobs; volunteer machines do the work.
 
+## Try it live
+
+**https://129-212-245-182.sslip.io**
+
+1. **Use models:** create an account (new accounts get $5 of free credits), then open
+   **Playground** to stream an answer, **Batch jobs** to run many prompts, or **API** to
+   get a key.
+2. **Share your Mac and earn 70% of what it serves:** open **My machines → Add a machine**
+   and paste the one-line command into Terminal on an Apple Silicon Mac (M1 or newer, 8 GB+).
+3. **Call it from code** with any OpenAI SDK:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="https://129-212-245-182.sslip.io/v1", api_key="ig_...")
+for chunk in client.chat.completions.create(model="qwen2.5-7b", stream=True,
+        messages=[{"role": "user", "content": "Hello!"}]):
+    print(chunk.choices[0].delta.content or "", end="")
+```
+
+Requests are served by volunteer Macs, so a model only answers while at least one node
+that has it is online (the **Overview** page shows how many). This is an early demo:
+don't send private or sensitive data.
+
+## Architecture
+
 ```
 buyer ──HTTPS/SSE──▶ coordinator + gateway ◀──outbound WebSocket── node agents (Macs/GPUs)
                      (accounts, scheduler,                          (MLX runtime, guards,
